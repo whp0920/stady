@@ -1,5 +1,6 @@
 package org.example.stady.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.example.stady.common.Result;
 import org.example.stady.entity.LearningRecord;
 import org.example.stady.service.LearningRecordService;
@@ -22,6 +23,13 @@ public class LearningRecordController {
         return Result.ok(service.create(record));
     }
 
+    @GetMapping("/page")
+    public Result<Page<LearningRecord>> getPage(@RequestParam(defaultValue = "1") int page,
+                                                 @RequestParam(defaultValue = "10") int size) {
+        Page<LearningRecord> p = new Page<>(page, size);
+        return Result.ok(service.getPage(p));
+    }
+
     @GetMapping("/{id}")
     public Result<LearningRecord> getById(@PathVariable Long id) {
         return Result.ok(service.getById(id));
@@ -29,6 +37,7 @@ public class LearningRecordController {
 
     @GetMapping
     public Result<List<LearningRecord>> getAll() {
+
         return Result.ok(service.getAll());
     }
 

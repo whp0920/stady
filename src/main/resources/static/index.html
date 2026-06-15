@@ -135,6 +135,45 @@
             .field input[type="number"] { width: 100%; }
             .td-note { max-width: 80px; }
         }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 0; margin-bottom: 28px; border-bottom: 2px solid var(--border); }
+        .tab { padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; background: none; color: var(--ink-muted); font-family: var(--font); transition: all 0.15s; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+        .tab:hover { color: var(--ink); }
+        .tab.active { color: var(--ink); border-bottom-color: var(--ink); }
+
+        /* Mood selector */
+        .mood-row { display: flex; gap: 8px; margin-bottom: 16px; }
+        .mood-btn { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-size: 13px; font-family: var(--font); transition: all 0.15s; }
+        .mood-btn:hover { background: var(--bg); }
+        .mood-btn.active { border-color: var(--ink); background: var(--ink); color: #fff; }
+        .mood-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+        .mood-dot.happy { background: #67c23a; }
+        .mood-dot.neutral { background: #e6a23c; }
+        .mood-dot.sad { background: #909399; }
+
+        /* Sub-tabs */
+        .sub-tabs { display: flex; gap: 0; margin-bottom: 20px; }
+        .sub-tab { padding: 5px 16px; font-size: 12.5px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--ink-secondary); font-family: var(--font); transition: all 0.12s; }
+        .sub-tab:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+        .sub-tab:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+        .sub-tab + .sub-tab { margin-left: -1px; }
+        .sub-tab.active { background: var(--ink); color: #fff; border-color: var(--ink); position: relative; z-index: 1; }
+
+        /* Modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 100; display: flex; align-items: center; justify-content: center; }
+        .modal-box { background: var(--surface); border-radius: 12px; padding: 28px 32px; max-width: 520px; width: 90%; max-height: 70vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.15); }
+        .modal-box h3 { font-size: 16px; font-weight: 600; margin-bottom: 20px; }
+        .modal-box .kv { margin-bottom: 12px; }
+        .modal-box .kv .k { font-size: 11px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 2px; }
+        .modal-box .kv .v { font-size: 14px; color: var(--ink); line-height: 1.5; }
+
+        /* Row clickable */
+        .clickable { cursor: pointer; }
+        .clickable:hover td { background: oklch(0.96 0.01 260); }
+
+        /* ID badge */
+        .id-badge { display: inline-block; min-width: 28px; text-align: center; font-size: 11px; color: var(--ink-muted); font-weight: 500; }
     </style>
 </head>
 <body>
@@ -146,6 +185,15 @@
             <h1>学习追踪</h1>
             <p>记录每天学的东西，看看时间都花在了哪</p>
         </div>
+
+        <!-- Tab 切换 -->
+        <div class="tabs">
+            <button :class="['tab', { active: activeTab === 'records' }]" @click="activeTab = 'records'">📋 学习记录</button>
+            <button :class="['tab', { active: activeTab === 'journal' }]" @click="activeTab = 'journal'">📔 每日日记</button>
+        </div>
+
+        <!-- ==================== 学习记录面板 ==================== -->
+        <div v-if="activeTab === 'records'">
 
         <div class="stats">
             <div class="stat-card">
@@ -171,7 +219,13 @@
             </div>
         </div>
 
-        <div class="section">
+        <!-- 子标签 -->
+        <div class="sub-tabs">
+            <button :class="['sub-tab', { active: recordsSub === 'add' }]" @click="recordsSub = 'add'">新增</button>
+            <button :class="['sub-tab', { active: recordsSub === 'list' }]" @click="recordsSub = 'list'">全部记录</button>
+        </div>
+
+        <div v-if="recordsSub === 'add'" class="section">
             <div class="section-header">
                 <span class="dot"></span>
                 <span class="section-title">{{ editing ? '编辑记录' : '新增记录' }}</span>
@@ -210,17 +264,18 @@
                 <div class="field" style="align-self:flex-end;">
                     <label class="field-label">&nbsp;</label>
                     <div>
-                        <button class="btn btn-primary" @click="submit">{{ editing ? '保存' : '添加' }}</button>
+                        <button class="btn btn-primary" @click="submitRecord">{{ editing ? '保存' : '添加' }}</button>
                         <button v-if="editing" class="btn btn-ghost" @click="cancelEdit">取消</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="section">
+        <div v-if="recordsSub === 'list'" class="section">
             <div class="section-header">
                 <span class="dot"></span>
                 <span class="section-title">全部记录</span>
+                <span style="margin-left:auto;font-size:12px;color:var(--ink-muted);">共 {{ recordsPage.total }} 条</span>
             </div>
 
             <div v-if="records.length === 0" class="empty">
@@ -231,6 +286,7 @@
             <table v-else class="data-table">
                 <thead>
                     <tr>
+                        <th style="width:36px;">#</th>
                         <th style="min-width:180px;">内容</th>
                         <th style="width:60px;">分类</th>
                         <th style="width:72px;">程度</th>
@@ -240,103 +296,164 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="row in records" :key="row.id">
+                    <tr v-for="(row, idx) in records" :key="row.id" class="clickable" @click="showModal('学习记录详情', row)">
+                        <td><span class="id-badge">{{ (recordsPage.current - 1) * recordsPage.size + idx + 1 }}</span></td>
                         <td class="td-title">{{ row.title }}</td>
                         <td><span :class="['tag', 'tag-' + row.category]">{{ catLabel(row.category) }}</span></td>
                         <td style="color:var(--ink-secondary);">{{ levelLabel(row.level) }}</td>
                         <td>{{ row.duration }}分钟</td>
                         <td class="td-note">{{ row.note || '—' }}</td>
                         <td class="td-actions">
-                            <button class="btn btn-mini" @click="startEdit(row)">编辑</button>
-                            <button class="btn btn-mini danger" @click="handleDelete(row.id)">删除</button>
+                            <button class="btn btn-mini" @click.stop="startEdit(row)">编辑</button>
+                            <button class="btn btn-mini danger" @click.stop="handleDelete(row.id)">删除</button>
                         </td>
                     </tr>
                 </tbody>
             </table>
+
+            <!-- 分页 -->
+            <div v-if="recordsPage.total > recordsPage.size" style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:16px;">
+                <button class="btn btn-mini" :disabled="recordsPage.current <= 1" @click="goRecordsPage(recordsPage.current - 1)">上一页</button>
+                <span style="font-size:12px;color:var(--ink-muted);">{{ recordsPage.current }} / {{ Math.ceil(recordsPage.total / recordsPage.size) }}</span>
+                <button class="btn btn-mini" :disabled="recordsPage.current >= Math.ceil(recordsPage.total / recordsPage.size)" @click="goRecordsPage(recordsPage.current + 1)">下一页</button>
+            </div>
         </div>
+
+        </div>
+        <!-- ==================== 学习记录面板结束 ==================== -->
+
+        <!-- ==================== 日记面板 ==================== -->
+        <div v-if="activeTab === 'journal'">
+
+        <!-- 子标签 -->
+        <div class="sub-tabs">
+            <button :class="['sub-tab', { active: journalSub === 'write' }]" @click="journalSub = 'write'">写日记</button>
+            <button :class="['sub-tab', { active: journalSub === 'history' }]" @click="journalSub = 'history'">历史日记</button>
+        </div>
+
+        <!-- 写日记 -->
+        <div v-if="journalSub === 'write'" class="section">
+            <div class="section-header">
+                <span class="dot"></span>
+                <span class="section-title">每日日记</span>
+            </div>
+
+            <div v-if="todayJournal" style="margin-bottom: 20px; padding: 16px; background: var(--bg); border-radius: var(--radius);">
+                <p style="font-size: 12px; color: var(--ink-muted); margin-bottom: 10px;">📅 今天的日记
+                    <span v-if="todayJournal.mood" style="margin-left: 8px;">{{ moodLabel(todayJournal.mood) }}</span>
+                </p>
+                <p v-if="todayJournal.happy" style="font-size: 13px; margin-bottom: 4px;">😊 开心的事：{{ todayJournal.happy }}</p>
+                <p v-if="todayJournal.fulfilled" style="font-size: 13px; margin-bottom: 4px;">✅ 充实的事：{{ todayJournal.fulfilled }}</p>
+                <p v-if="todayJournal.improve" style="font-size: 13px; margin-bottom: 4px;">📝 值得改进：{{ todayJournal.improve }}</p>
+                <p v-if="todayJournal.grateful" style="font-size: 13px; margin-bottom: 4px;">🙏 感谢的人：{{ todayJournal.grateful }}</p>
+                <p v-if="todayJournal.note" style="font-size: 13px; margin-top: 8px; color: var(--ink-secondary);">{{ todayJournal.note }}</p>
+            </div>
+
+            <!-- 心情选择 -->
+            <div class="mood-row">
+                <span style="font-size: 12px; color: var(--ink-muted); line-height: 30px; margin-right: 8px;">今天的心情：</span>
+                <button v-for="m in moods" :class="['mood-btn', { active: journalForm.mood === m.value }]" @click="journalForm.mood = m.value">
+                    <span :class="['mood-dot', m.value]"></span>{{ m.emoji }} {{ m.label }}
+                </button>
+            </div>
+
+            <div class="form-row">
+                <div class="field" style="flex:1;min-width:180px;">
+                    <label class="field-label">😊 今天开心的事</label>
+                    <input type="text" v-model="journalForm.happy" placeholder="比如：代码跑通了" style="width:100%;">
+                </div>
+                <div class="field" style="flex:1;min-width:180px;">
+                    <label class="field-label">✅ 今天充实的事</label>
+                    <input type="text" v-model="journalForm.fulfilled" placeholder="比如：写完了日记 CRUD" style="width:100%;">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="field" style="flex:1;min-width:180px;">
+                    <label class="field-label">📝 今天值得改进的事</label>
+                    <input type="text" v-model="journalForm.improve" placeholder="比如：前端速度太慢了" style="width:100%;">
+                </div>
+                <div class="field" style="flex:1;min-width:180px;">
+                    <label class="field-label">🙏 今天感谢的人</label>
+                    <input type="text" v-model="journalForm.grateful" placeholder="比如：感谢室友帮忙带饭" style="width:100%;">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="field" style="flex:2;min-width:200px;">
+                    <label class="field-label">💬 随便写点什么</label>
+                    <input type="text" v-model="journalForm.note" placeholder="可选" style="width:100%;">
+                </div>
+                <div class="field" style="align-self:flex-end;">
+                    <label class="field-label">&nbsp;</label>
+                    <button class="btn btn-primary" @click="submitJournal">保存日记</button>
+                </div>
+            </div>
+        </div>
+        </div>
+
+        <!-- 历史日记 -->
+        <div v-if="journalSub === 'history'" class="section">
+            <div class="section-header">
+                <span class="dot"></span>
+                <span class="section-title">历史日记</span>
+                <span style="margin-left:auto;font-size:12px;color:var(--ink-muted);">共 {{ journalPage.total }} 条</span>
+            </div>
+
+            <div v-if="journals.length === 0" class="empty">
+                <span class="emoji">📔</span>
+                还没有日记。
+            </div>
+
+            <table v-else class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width:36px;">#</th>
+                        <th style="width:90px;">日期</th>
+                        <th style="width:60px;">心情</th>
+                        <th style="min-width:120px;">开心的事</th>
+                        <th style="min-width:120px;">充实的事</th>
+                        <th style="width:80px;text-align:right;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="(row, idx) in journals" :key="row.id" class="clickable" @click="showModal('日记详情', row)">
+                        <td><span class="id-badge">{{ (journalPage.current - 1) * journalPage.size + idx + 1 }}</span></td>
+                        <td style="font-size:12px;color:var(--ink-secondary);">{{ formatDate(row.createdAt) }}</td>
+                        <td><span v-if="row.mood" style="font-size:13px;">{{ moodLabel(row.mood) }}</span></td>
+                        <td class="td-note">{{ row.happy || '—' }}</td>
+                        <td class="td-note">{{ row.fulfilled || '—' }}</td>
+                        <td class="td-actions">
+                            <button class="btn btn-mini danger" @click.stop="deleteJournal(row.id)">删除</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div v-if="journalPage.total > journalPage.size" style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:16px;">
+                <button class="btn btn-mini" :disabled="journalPage.current <= 1" @click="goJournalPage(journalPage.current - 1)">上一页</button>
+                <span style="font-size:12px;color:var(--ink-muted);">{{ journalPage.current }} / {{ Math.ceil(journalPage.total / journalPage.size) }}</span>
+                <button class="btn btn-mini" :disabled="journalPage.current >= Math.ceil(journalPage.total / journalPage.size)" @click="goJournalPage(journalPage.current + 1)">下一页</button>
+            </div>
+        </div>
+
+        </div>
+        <!-- ==================== 日记面板结束 ==================== -->
+
+        <!-- 详情弹窗 -->
+        <div v-if="modal.show" class="modal-overlay" @click="modal.show = false">
+            <div class="modal-box" @click.stop>
+                <h3>{{ modal.title }}</h3>
+                <div v-for="item in modal.items" :key="item.key" class="kv">
+                    <div class="k">{{ item.key }}</div>
+                    <div class="v">{{ item.value }}</div>
+                </div>
+                <button class="btn btn-ghost" style="margin-top:16px;" @click="modal.show = false">关闭</button>
+            </div>
+        </div>
+
     </div>
 </div>
 
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<script>
-const { createApp, ref, reactive, onMounted } = Vue
-
-createApp({
-    setup() {
-        const records = ref([])
-        const editing = ref(false)
-        const form = reactive({ title: '', category: 'backend', level: 'heard', duration: 30, note: '' })
-        const editId = ref(null)
-        const stats = reactive({ total: 0, todayMinutes: 0, weekHours: 0 })
-        const toast = reactive({ show: false, msg: '', type: 'success' })
-        const API = '/api/records'
-        const categories = [
-            { label: '后端', value: 'backend' },
-            { label: '前端', value: 'frontend' },
-            { label: '基础', value: 'basics' },
-            { label: '其他', value: 'other' }
-        ]
-
-        function showToast(msg, type = 'success') {
-            toast.msg = msg; toast.type = type; toast.show = true
-            setTimeout(() => { toast.show = false }, 2000)
-        }
-
-        async function load() {
-            const res = await fetch(API)
-            const json = await res.json()
-            if (json.code === 200) { records.value = json.data; calcStats() }
-        }
-
-        function calcStats() {
-            const list = records.value
-            stats.total = list.length
-            const today = new Date().toISOString().slice(0, 10)
-            stats.todayMinutes = list.filter(r => r.createdAt && r.createdAt.startsWith(today))
-                .reduce((s, r) => s + (r.duration || 0), 0)
-            const now = new Date()
-            const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay())
-            stats.weekHours = Math.round(list.filter(r => r.createdAt && new Date(r.createdAt) >= weekStart)
-                .reduce((s, r) => s + (r.duration || 0), 0) / 60 * 10) / 10
-        }
-
-        async function submit() {
-            const body = { title: form.title, category: form.category, level: form.level, duration: form.duration, note: form.note }
-            let url = API, method = 'POST'
-            if (editing.value) { url = `${API}/${editId.value}`; method = 'PUT' }
-            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-            const json = await res.json()
-            if (json.code === 200) { resetForm(); await load(); showToast(editing.value ? '已更新' : '已添加') }
-            else { showToast(json.message || '操作失败', 'error') }
-        }
-
-        function startEdit(row) { editing.value = true; editId.value = row.id; Object.assign(form, row) }
-        function cancelEdit() { resetForm() }
-        function resetForm() {
-            editing.value = false; editId.value = null
-            Object.assign(form, { title: '', category: 'backend', level: 'heard', duration: 30, note: '' })
-        }
-
-        async function handleDelete(id) {
-            if (!confirm('确定删除这条记录吗？')) return
-            const res = await fetch(`${API}/${id}`, { method: 'DELETE' })
-            const json = await res.json()
-            if (json.code === 200) { await load(); showToast('已删除') }
-            else { showToast(json.message || '删除失败', 'error') }
-        }
-
-        function catLabel(c) {
-            return { backend: '后端', frontend: '前端', basics: '基础', other: '其他' }[c] || c
-        }
-        function levelLabel(l) {
-            return { heard: '听说过', can_explain: '能解释', can_write: '能写' }[l] || l
-        }
-
-        onMounted(load)
-
-        return { records, form, editing, stats, toast, categories, submit, startEdit, cancelEdit, handleDelete, catLabel, levelLabel }
-    }
-}).mount('#app')
-</script>
+<script src="app.js"></script>
 </body>
 </html>
