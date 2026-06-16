@@ -181,9 +181,25 @@
     <div class="app">
         <div v-if="toast.show" :class="['toast', toast.type]">{{ toast.msg }}</div>
 
-        <div class="header">
-            <h1>学习追踪</h1>
-            <p>记录每天学的东西，看看时间都花在了哪</p>
+        <!-- 登录框 -->
+        <div v-if="!loggedIn" style="max-width:360px;margin:80px auto;">
+            <div class="section">
+                <h2 style="font-size:18px;font-weight:600;margin-bottom:20px;">🔐 登录 / 注册</h2>
+                <input type="text" v-model="loginForm.username" placeholder="用户名" style="width:100%;height:38px;padding:0 12px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;font-size:14px;font-family:var(--font);">
+                <input type="password" v-model="loginForm.password" placeholder="密码" @keyup.enter="doLogin" style="width:100%;height:38px;padding:0 12px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;font-size:14px;font-family:var(--font);">
+                <button class="btn btn-primary" @click="doLogin" style="width:100%;margin-bottom:8px;">登录</button>
+                <button class="btn btn-ghost" @click="doRegister" style="width:100%;">注册</button>
+            </div>
+        </div>
+
+        <!-- 主界面 -->
+        <div v-if="loggedIn">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+            <div class="header" style="margin-bottom:0;">
+                <h1>学习追踪</h1>
+                <p>记录每天学的东西，看看时间都花在了哪</p>
+            </div>
+            <button class="btn btn-mini" @click="doLogout" style="white-space:nowrap;">退出</button>
         </div>
 
         <!-- Tab 切换 -->
@@ -456,6 +472,9 @@
 
         </div>
         <!-- ==================== 日记面板结束 ==================== -->
+
+        </div>
+        <!-- ==================== 主界面结束（loggedIn） ==================== -->
 
         <!-- 详情弹窗 -->
         <div v-if="modal.show" class="modal-overlay" @click="modal.show = false">
