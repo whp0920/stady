@@ -1,4 +1,4 @@
-const { createApp, ref, reactive, onMounted } = Vue
+const { createApp, ref, reactive, onMounted, nextTick } = Vue
 
 createApp({
     setup() {
@@ -6,11 +6,12 @@ createApp({
         const activeTab = ref('records')
         const recordsSub = ref('list')   // 'add' | 'list'
         const journalSub = ref('write')  // 'write' | 'history'
+        const categoryStats = ref([])
 
         // ==================== 学习记录 ====================
         const records = ref([])
         const editing = ref(false)
-        const form = reactive({ title: '', category: 'backend', level: 'heard', duration: 30, note: '' })
+        const form = reactive({ title: '', category: 'backend', level: 'heard', duration: 30, note: '', customCategory: '' })
         const editId = ref(null)
         const stats = reactive({ total: 0, todayMinutes: 0, weekHours: 0 })
         const RECORDS_API = '/api/records'
@@ -55,6 +56,74 @@ createApp({
         }
 
         // ==================== 学习记录方法 ====================
+
+        let chartCategory = null, chartWeekly = null
+
+        async function loadStats(){
+            const res = await fetch('/api/records/stats')
+            const json = await res.json()
+            if (json.code === 200) {
+                categoryStats.value = json.data
+                await nextTick()
+                renderCharts()
+            }
+        }
+
+        function renderCharts() {
+            // 分类饼图
+            const ctx1 = document.getElementById('chartCategory')
+            if (ctx1) {
+                if (chartCategory) chartCategory.destroy()
+                chartCategory = new Chart(ctx1, {
+                    type: 'doughnut',
+                    data: {
+                        labels: categoryStats.value.map(s => catLabel(s.name)),
+                        datasets: [{
+                            data: categoryStats.value.map(s => s.minutes),
+                            backgroundColor: ['#5470c6', '#91cc75', '#fac858', '#ee6666']
+                        }]
+                    },
+                    options: {
+                        plugins: { legend: { position: 'bottom' } },
+                        cutout: '55%'
+                    }
+                })
+            }
+
+            // 柱状图（Mock：展示最近7天学习时长）
+            const ctx2 = document.getElementById('chartWeekly')
+            if (ctx2) {
+                if (chartWeekly) chartWeekly.destroy()
+                const days = []
+                const data = []
+                const now = new Date()
+                for (let i = 6; i >= 0; i--) {
+                    const d = new Date(now); d.setDate(d.getDate() - i)
+                    const key = d.toISOString().slice(0, 10)
+                    days.push(d.getMonth() + 1 + '/' + d.getDate())
+                    // 从 records 计算当天时长
+                    const min = records.value
+                        .filter(r => r.createdAt && r.createdAt.startsWith(key))
+                        .reduce((s, r) => s + (r.duration || 0), 0)
+                    data.push(min)
+                }
+                chartWeekly = new Chart(ctx2, {
+                    type: 'bar',
+                    data: {
+                        labels: days,
+                        datasets: [{
+                            label: '学习时长（分钟）',
+                            data: data,
+                            backgroundColor: '#5470c6'
+                        }]
+                    },
+                    options: {
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                })
+            }
+        }
         async function loadRecords() {
             const res = await fetch(`${RECORDS_API}/page?page=${recordsPage.current}&size=${recordsPage.size}`)
             const json = await res.json()
@@ -86,7 +155,8 @@ createApp({
         }
 
         async function submitRecord() {
-            const body = { title: form.title, category: form.category, level: form.level, duration: form.duration, note: form.note }
+            const cat = form.category === 'other' && form.customCategory ? form.customCategory : form.category
+            const body = { title: form.title, category: cat, level: form.level, duration: form.duration, note: form.note }
             let url = RECORDS_API, method = 'POST'
             if (editing.value) { url = `${RECORDS_API}/${editId.value}`; method = 'PUT' }
             const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -99,7 +169,7 @@ createApp({
         function cancelEdit() { resetForm() }
         function resetForm() {
             editing.value = false; editId.value = null
-            Object.assign(form, { title: '', category: 'backend', level: 'heard', duration: 30, note: '' })
+            Object.assign(form, { title: '', category: 'backend', level: 'heard', duration: 30, note: '', customCategory: '' })
         }
 
         async function handleDelete(id) {
@@ -174,10 +244,11 @@ createApp({
         onMounted(() => {
             loadRecords()
             loadJournals()
+            loadStats()
         })
 
         return {
-            activeTab, recordsSub, journalSub,
+            activeTab, recordsSub, journalSub, categoryStats, loadStats,
             records, form, editing, stats, recordsPage, categories,
             submitRecord, startEdit, cancelEdit, handleDelete, catLabel, levelLabel, goRecordsPage, showModal,
             journalForm, todayJournal, journals, journalPage, moods,

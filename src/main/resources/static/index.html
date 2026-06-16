@@ -219,6 +219,24 @@
             </div>
         </div>
 
+        <!-- 分类分布 -->
+        <div v-if="categoryStats.length > 0" style="display:flex;gap:16px;margin-bottom:24px;">
+            <div v-for="s in categoryStats" :key="s.name" style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;">
+                <span style="font-size:12px;color:var(--ink-muted);">{{ catLabel(s.name) }}</span>
+                <span style="font-size:22px;font-weight:650;color:var(--ink);display:block;margin-top:2px;">{{ s.minutes }}<span style="font-size:12px;font-weight:400;color:var(--ink-muted);"> 分钟</span></span>
+            </div>
+        </div>
+
+        <!-- 图表 -->
+        <div v-if="categoryStats.length > 0" style="display:flex;gap:16px;margin-bottom:24px;">
+            <div style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;">
+                <canvas id="chartCategory" height="200"></canvas>
+            </div>
+            <div style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;">
+                <canvas id="chartWeekly" height="200"></canvas>
+            </div>
+        </div>
+
         <!-- 子标签 -->
         <div class="sub-tabs">
             <button :class="['sub-tab', { active: recordsSub === 'add' }]" @click="recordsSub = 'add'">新增</button>
@@ -256,6 +274,7 @@
                             {{ opt.label }}
                         </label>
                     </div>
+                    <input v-if="form.category === 'other'" v-model="form.customCategory" placeholder="输入分类名" style="margin-left:10px;height:28px;padding:0 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px;width:120px;">
                 </div>
                 <div class="field" style="flex:1;min-width:120px;">
                     <label class="field-label">备注</label>
@@ -454,6 +473,7 @@
 </div>
 
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="app.js"></script>
 </body>
 </html>

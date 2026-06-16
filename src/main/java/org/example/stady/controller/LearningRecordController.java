@@ -2,6 +2,7 @@ package org.example.stady.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.example.stady.common.Result;
+import org.example.stady.dto.StatsDTO;
 import org.example.stady.entity.LearningRecord;
 import org.example.stady.service.LearningRecordService;
 import org.springframework.web.bind.annotation.*;
@@ -51,5 +52,9 @@ public class LearningRecordController {
     public Result<Void> delete(@PathVariable Long id) {
         service.delete(id);
         return Result.ok();
+    }
+    @GetMapping("/stats")
+    public Result<List<StatsDTO>> getStats() {
+        return Result.ok(service.getStats());
     }
 }
