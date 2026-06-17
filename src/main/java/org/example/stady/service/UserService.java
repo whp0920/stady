@@ -29,6 +29,14 @@ public class UserService {
 
     // ============ 注册 ============
     public Result<Void> register(User user) {
+        // 0. 空值校验
+        if (user.getUsername() == null || user.getUsername().isBlank()) {
+            return Result.fail("用户名不能为空");
+        }
+        if (user.getPassword() == null || user.getPassword().isBlank()) {
+            return Result.fail("密码不能为空");
+        }
+
         // 1. 查数据库：用户名有没有被占用？
         QueryWrapper<User> wrapper = new QueryWrapper<>();
         wrapper.eq("username", user.getUsername());
@@ -44,6 +52,12 @@ public class UserService {
 
     // ============ 登录 ============
     public Result<String> login(User user) {
+        // 0. 空值校验
+        if (user.getUsername() == null || user.getUsername().isBlank()
+            || user.getPassword() == null || user.getPassword().isBlank()) {
+            return Result.fail("用户名或密码错误");
+        }
+
         // 1. 查用户
         QueryWrapper<User> wrapper = new QueryWrapper<>();
         wrapper.eq("username", user.getUsername());
@@ -62,7 +76,7 @@ public class UserService {
             .subject(dbUser.getId().toString())
             .claim("username", dbUser.getUsername())
             .issuedAt(new Date())
-            .expiration(new Date(System.currentTimeMillis() + 86400000)) // 24小时
+            .expiration(new Date(System.currentTimeMillis() + 7200000)) // 2小时
             .signWith(KEY)
             .compact();
 

@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 public class Journal {
     @TableId(type = IdType.AUTO)
     private Long id;
+    private Long userId;
     private String happy;
     private String fulfilled;
     private String improve;

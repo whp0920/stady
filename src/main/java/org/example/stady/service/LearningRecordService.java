@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.example.stady.dto.StatsDTO;
 import org.example.stady.entity.LearningRecord;
 import org.example.stady.mapper.LearningRecordMapper;
+import org.example.stady.utils.UserContext;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -29,25 +30,28 @@ public class LearningRecordService {
         @CacheEvict(value = "stats", allEntries = true)
     })
     public LearningRecord create(LearningRecord record) {
+        record.setUserId(UserContext.getUserId());
         mapper.insert(record);
         return record;
     }
 
-    @Cacheable(value = "records", key = "'record_' + #id")
+    @Cacheable(value = "records", key = "'record_' + #id + '_' + T(org.example.stady.utils.UserContext).getUserId()")
     public LearningRecord getById(Long id) {
-        return mapper.selectById(id);
+        QueryWrapper<LearningRecord> wrapper = new QueryWrapper<>();
+        wrapper.eq("user_id", UserContext.getUserId()).eq("id", id);
+        return mapper.selectOne(wrapper);
     }
 
-    @Cacheable(value = "records", key = "'all'")
+    @Cacheable(value = "records", key = "'all_' + T(org.example.stady.utils.UserContext).getUserId()")
     public List<LearningRecord> getAll() {
         QueryWrapper<LearningRecord> wrapper = new QueryWrapper<>();
-        wrapper.orderByDesc("created_at");
+        wrapper.eq("user_id", UserContext.getUserId()).orderByDesc("created_at");
         return mapper.selectList(wrapper);
     }
 
     public Page<LearningRecord> getPage(Page<LearningRecord> page) {
         QueryWrapper<LearningRecord> wrapper = new QueryWrapper<>();
-        wrapper.orderByDesc("created_at");
+        wrapper.eq("user_id", UserContext.getUserId()).orderByDesc("created_at");
         return mapper.selectPage(page, wrapper);
     }
 
@@ -56,8 +60,10 @@ public class LearningRecordService {
         @CacheEvict(value = "stats", allEntries = true)
     })
     public LearningRecord update(LearningRecord record) {
-        mapper.updateById(record);
-        return mapper.selectById(record.getId());
+        QueryWrapper<LearningRecord> wrapper = new QueryWrapper<>();
+        wrapper.eq("user_id", UserContext.getUserId()).eq("id", record.getId());
+        mapper.update(record, wrapper);
+        return mapper.selectOne(wrapper);
     }
 
     @Caching(evict = {
@@ -65,10 +71,12 @@ public class LearningRecordService {
         @CacheEvict(value = "stats", allEntries = true)
     })
     public void delete(Long id) {
-        mapper.deleteById(id);
+        QueryWrapper<LearningRecord> wrapper = new QueryWrapper<>();
+        wrapper.eq("user_id", UserContext.getUserId()).eq("id", id);
+        mapper.delete(wrapper);
     }
 
-    @Cacheable(value = "stats", key = "'stats'")
+    @Cacheable(value = "stats", key = "'stats_' + T(org.example.stady.utils.UserContext).getUserId()")
     public List<StatsDTO> getStats() {
         List<LearningRecord> all = getAll();
 
@@ -86,7 +94,6 @@ public class LearningRecordService {
         //         Collectors.summingInt(LearningRecord::getDuration)
         //     ));
 
-        // for 循环版：Map → DTO 列表
         List<StatsDTO> result = new ArrayList<>();
         for (Map.Entry<String, Integer> e : map.entrySet()) {
             StatsDTO dto = new StatsDTO();
@@ -94,16 +101,6 @@ public class LearningRecordService {
             dto.setMinutes(e.getValue());
             result.add(dto);
         }
-
-        // Stream 版：完全等价
-        // List<StatsDTO> result = map.entrySet().stream()
-        //     .map(e -> {
-        //         StatsDTO dto = new StatsDTO();
-        //         dto.setName(e.getKey());
-        //         dto.setMinutes(e.getValue());
-        //         return dto;
-        //     })
-        //     .collect(Collectors.toList());
 
         return result;
     }

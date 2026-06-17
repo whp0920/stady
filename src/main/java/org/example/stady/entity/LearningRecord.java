@@ -12,6 +12,7 @@ public class LearningRecord {
 
     @TableId(type = IdType.AUTO)
     private Long id;
+    private Long userId;
     private String title;
     private String category;
     private String level;

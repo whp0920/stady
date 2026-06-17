@@ -19,6 +19,10 @@ createApp({
         }
 
         async function doLogin() {
+            if (!loginForm.username || !loginForm.password) {
+                showToast('用户名和密码不能为空', 'error')
+                return
+            }
             const res = await fetch(`${USER_API}/login`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(loginForm)
@@ -26,6 +30,7 @@ createApp({
             const json = await res.json()
             if (json.code === 200) {
                 localStorage.setItem('token', json.data)
+                localStorage.setItem('loginTime', Date.now())
                 loggedIn.value = true
                 loadRecords(); loadJournals(); loadStats()
                 showToast('登录成功')
@@ -35,6 +40,10 @@ createApp({
         }
 
         async function doRegister() {
+            if (!loginForm.username || !loginForm.password) {
+                showToast('用户名和密码不能为空', 'error')
+                return
+            }
             const res = await fetch(`${USER_API}/register`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(loginForm)
@@ -49,7 +58,27 @@ createApp({
 
         function doLogout() {
             localStorage.removeItem('token')
-            loggedIn.value = false
+            localStorage.removeItem('loginTime')
+            loginForm.username = ''
+            loginForm.password = ''
+            location.reload()
+        }
+
+        // ==================== 401 统一处理 ====================
+        async function authFetch(url, options = {}) {
+            const res = await fetch(url, { ...options, headers: getAuthHeaders() })
+            if (res.status === 401) {
+                localStorage.removeItem('token')
+                localStorage.removeItem('loginTime')
+                loggedIn.value = false
+                showToast('登录已过期，请重新登录', 'error')
+                throw new Error('401')
+            }
+            // 每次成功请求都刷新 2 小时计时器
+            if (res.ok && localStorage.getItem('token')) {
+                localStorage.setItem('loginTime', Date.now())
+            }
+            return res
         }
 
         // ==================== 学习记录 ====================
@@ -104,7 +133,7 @@ createApp({
         let chartCategory = null, chartWeekly = null
 
         async function loadStats(){
-            const res = await fetch('/api/records/stats', { headers: getAuthHeaders() })
+            const res = await authFetch('/api/records/stats')
             const json = await res.json()
             if (json.code === 200) {
                 categoryStats.value = json.data
@@ -169,7 +198,7 @@ createApp({
             }
         }
         async function loadRecords() {
-            const res = await fetch(`${RECORDS_API}/page?page=${recordsPage.current}&size=${recordsPage.size}`, { headers: getAuthHeaders() })
+            const res = await authFetch(`${RECORDS_API}/page?page=${recordsPage.current}&size=${recordsPage.size}`)
             const json = await res.json()
             if (json.code === 200) {
                 records.value = json.data.records
@@ -177,7 +206,7 @@ createApp({
                 recordsPage.current = json.data.current
             }
             // 统计用全量数据
-            const all = await fetch(RECORDS_API, { headers: getAuthHeaders() })
+            const all = await authFetch(RECORDS_API)
             const allJson = await all.json()
             if (allJson.code === 200) calcStats(allJson.data)
         }
@@ -203,7 +232,7 @@ createApp({
             const body = { title: form.title, category: cat, level: form.level, duration: form.duration, note: form.note }
             let url = RECORDS_API, method = 'POST'
             if (editing.value) { url = `${RECORDS_API}/${editId.value}`; method = 'PUT' }
-            const res = await fetch(url, { method, headers: getAuthHeaders(), body: JSON.stringify(body) })
+            const res = await authFetch(url, { method, body: JSON.stringify(body) })
             const json = await res.json()
             if (json.code === 200) { resetForm(); await loadRecords(); recordsSub.value = 'list'; showToast(editing.value ? '已更新' : '已添加') }
             else { showToast(json.message || '操作失败', 'error') }
@@ -218,7 +247,7 @@ createApp({
 
         async function handleDelete(id) {
             if (!confirm('确定删除这条记录吗？')) return
-            const res = await fetch(`${RECORDS_API}/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
+            const res = await authFetch(`${RECORDS_API}/${id}`, { method: 'DELETE' })
             const json = await res.json()
             if (json.code === 200) { await loadRecords(); showToast('已删除') }
             else { showToast(json.message || '删除失败', 'error') }
@@ -229,7 +258,7 @@ createApp({
 
         // ==================== 日记方法 ====================
         async function loadJournals() {
-            const res = await fetch(`${JOURNAL_API}/page?page=${journalPage.current}&size=${journalPage.size}`, { headers: getAuthHeaders() })
+            const res = await authFetch(`${JOURNAL_API}/page?page=${journalPage.current}&size=${journalPage.size}`)
             const json = await res.json()
             if (json.code === 200) {
                 journals.value = json.data.records
@@ -245,7 +274,7 @@ createApp({
         }
 
         async function loadTodayJournal() {
-            const res = await fetch(JOURNAL_API, { headers: getAuthHeaders() })
+            const res = await authFetch(JOURNAL_API)
             const json = await res.json()
             if (json.code === 200 && json.data && json.data.length > 0) {
                 const today = new Date().toISOString().slice(0, 10)
@@ -271,7 +300,7 @@ createApp({
 
         async function deleteJournal(id) {
             if (!confirm('确定删除这条日记吗？')) return
-            const res = await fetch(`${JOURNAL_API}/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
+            const res = await authFetch(`${JOURNAL_API}/${id}`, { method: 'DELETE' })
             const json = await res.json()
             if (json.code === 200) { await loadJournals(); showToast('已删除') }
             else { showToast(json.message || '删除失败', 'error') }
@@ -289,15 +318,22 @@ createApp({
             const token = localStorage.getItem('token')
             if (!token) return
 
-            // 尝试用已有 Token 加载数据
+            // 2 小时超时检查
+            const loginTime = localStorage.getItem('loginTime')
+            if (loginTime && Date.now() - Number(loginTime) > 7200000) {
+                localStorage.removeItem('token')
+                localStorage.removeItem('loginTime')
+                return
+            }
+
             loggedIn.value = true
             try {
                 await loadRecords()
                 await loadJournals()
                 await loadStats()
             } catch (e) {
-                // Token 过期或无效 → 退回登录
                 localStorage.removeItem('token')
+                localStorage.removeItem('loginTime')
                 loggedIn.value = false
             }
         })
